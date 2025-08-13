@@ -33,13 +33,13 @@ To get a local copy up and running, follow these simple steps.
 1. Clone the repo:
 
    ```sh
-   git clone https://github.com/YourUsername/MammoScan-AI.git
+   git clone https://github.com/josephed37/mammoscan-AI.git
    ```
 
 2. Navigate to the project directory:
 
    ```bash
-   cd MammoScan-AI
+   cd mammoscan-AI
    ```
 
    *(More instructions to be added later...)*
