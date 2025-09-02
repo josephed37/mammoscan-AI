@@ -56,7 +56,8 @@ def main():
     )
 
     # Step 5: Add the AUGMENTED data ONLY to the training set
-    final_train_df = pd.concat([train_df, augmented_df], ignore_index=True)
+    # final_train_df = pd.concat([train_df, augmented_df], ignore_index=True)
+    final_train_df = train_df # EXPERIMENT: USE ONLY ORIGINALS
     
     print("\nDataset split sizes:")
     print(f"  Training set:   {len(final_train_df)} images")
