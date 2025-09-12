@@ -1,58 +1,80 @@
 // backend/internal/inference/onnx.go
-
 package inference
 
 import (
 	"fmt"
-	"log"
 	"os"
 
-	ort "github.com/yalue/onnxruntime_go"
+	"github.com/owulveryck/onnx-go"
+	"github.com/owulveryck/onnx-go/backend/x/gorgonnx"
+	"gorgonia.org/tensor"
 )
 
-// Session holds the loaded ONNX model session.
-var Session *ort.AdvancedSession
-
-// LoadONNXModel loads the ONNX model from the specified path and initializes the session.
-func LoadONNXModel(modelPath string) error {
-	// --- FIX 1: Correctly set the shared library path ---
-	// This function doesn't return an error, so we call it directly.
-	// We'll point it to the library inside our project's backend directory.
-	ort.SetSharedLibraryPath("backend/onnxruntime/lib/libonnxruntime.so.1.18.0")
-	ort.InitializeEnvironment()
-
-	// Check if the model file exists.
-	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-		return fmt.Errorf("model file not found at %s", modelPath)
-	}
-
-	// Define the input and output names for our model.
-	inputNames := []string{"input"}
-	outputNames := []string{"output_0"} // ONNX often names the output layer this way.
-
-	// --- FIX 2: Call NewAdvancedSession with the correct number of arguments ---
-	// We provide 'nil' for the last three arguments as we don't need them for simple loading.
-	session, err := ort.NewAdvancedSession(modelPath,
-		inputNames,
-		outputNames,
-		nil, // input values (for initialization, not needed)
-		nil, // output values (for initialization, not needed)
-		nil, // session options (for advanced config, not needed)
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create onnx session: %w", err)
-	}
-
-	// Store the created session in our global variable.
-	Session = session
-	log.Println("✅ ONNX model loaded and session created successfully.")
-	return nil
+// ONNXInference holds the loaded model and backend.
+type ONNXInference struct {
+	model   *onnx.Model
+	backend onnx.Backend
 }
 
-// CloseSession cleans up and destroys the ONNX session.
-func CloseSession() {
-	if Session != nil {
-		Session.Destroy()
+// NewONNXInference loads an ONNX model from the specified file path.
+func NewONNXInference(modelPath string) (*ONNXInference, error) {
+	// Read the model data from the file.
+	modelData, err := os.ReadFile(modelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read model file: %w", err)
 	}
-	ort.DestroyEnvironment()
+
+	// Create a new Gorgonia backend (the engine that runs the model).
+	backend := gorgonnx.NewGraph()
+	// Create a new model object.
+	model := onnx.NewModel(backend)
+
+	// Decode the model data into the model object.
+	err = model.UnmarshalBinary(modelData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ONNX model: %w", err)
+	}
+
+	return &ONNXInference{
+		model:   model,
+		backend: backend,
+	}, nil
+}
+
+// Predict runs inference on the input data.
+// (We will complete this in a future step when we add preprocessing).
+func (o *ONNXInference) Predict(inputTensor tensor.Tensor) ([]float32, error) {
+	// Set the input tensor to the model.
+	err := o.model.SetInput(0, inputTensor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set input: %w", err)
+	}
+
+	// Run the model's computation graph.
+	g, ok := o.backend.(*gorgonnx.Graph)
+	if !ok {
+		return nil, fmt.Errorf("backend is not a *gorgonnx.Graph")
+	}
+	err = g.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run model: %w", err)
+	}
+
+	// Get the prediction result from the model.
+	outputs, err := o.model.GetOutputTensors()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get output: %w", err)
+	}
+
+	if len(outputs) == 0 {
+		return nil, fmt.Errorf("no output tensors found")
+	}
+
+	// Convert the output tensor to a float32 slice.
+	outputData, ok := outputs[0].Data().([]float32)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert output to float32 slice")
+	}
+
+	return outputData, nil
 }

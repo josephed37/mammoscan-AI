@@ -1,46 +1,54 @@
 // backend/internal/handlers/handlers.go
-
 package handlers
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+	"github.com/josephed37/mammoscan-AI/backend/internal/inference"
 	"github.com/josephed37/mammoscan-AI/backend/internal/models"
 )
 
-// PredictionHandler handles the incoming requests for model prediction.
-func PredictionHandler(w http.ResponseWriter, r *http.Request) {
-	// We only want to allow POST requests to this endpoint.
-	if r.Method != http.MethodPost {
-		handleError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+// Handler holds the dependencies for our API handlers, like the inference engine.
+type Handler struct {
+	InferenceEngine *inference.ONNXInference
+}
 
-	// For now, we will just return a dummy successful response.
-	// In the future, this is where we'll process the image and run the model.
-	response := models.PredictionResponse{
-		Prediction:      "Non-Cancer", // Dummy prediction
-		ConfidenceScore: 0.95,
-		ModelName:       "dummy_model_v1",
-		ModelThreshold:  0.5,
-	}
-
-	// Set the content type header to application/json.
-	w.Header().Set("Content-Type", "application/json")
-	// Set the status code to 200 OK.
-	w.WriteHeader(http.StatusOK)
-	// Encode our response struct into JSON and write it to the response body.
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
+// NewHandler creates a new Handler with its dependencies.
+func NewHandler(inferenceEngine *inference.ONNXInference) *Handler {
+	return &Handler{
+		InferenceEngine: inferenceEngine,
 	}
 }
 
-// handleError is a helper function to send a consistent JSON error message.
-func handleError(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	response := models.ErrorResponse{Error: message}
-	json.NewEncoder(w).Encode(response)
+// HealthCheck provides a simple health status.
+func (h *Handler) HealthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "OK"})
+}
+
+// Predict handles the image upload and model prediction.
+func (h *Handler) Predict(c *gin.Context) {
+	// --- 1. Get the image file from the request ---
+	_, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "image file is required"})
+		return
+	}
+
+	// (Future Step: We will add the image preprocessing logic here)
+	// For now, we'll just confirm the file was received.
+
+	// --- 2. Run Inference (Dummy for now) ---
+	// prediction, err := h.InferenceEngine.Predict(preprocessedImage)
+	// (Error handling for prediction...)
+
+	// --- 3. Return a successful response ---
+	response := models.PredictionResponse{
+		Prediction:      "Cancer", // Dummy prediction
+		ConfidenceScore: 0.989,    // Dummy score
+		ModelName:       "champion_model_v2",
+		ModelThreshold:  0.110593,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
