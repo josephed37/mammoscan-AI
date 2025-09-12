@@ -1,30 +1,48 @@
 // backend/cmd/api/main.go
-
 package main
 
 import (
 	"log"
-	"net/http"
+	"path/filepath"
+	"runtime"
 
-	// Import our new handlers package
+	"github.com/gin-gonic/gin"
 	"github.com/josephed37/mammoscan-AI/backend/internal/handlers"
+	"github.com/josephed37/mammoscan-AI/backend/internal/inference"
 )
 
-const port = ":8080"
-
 func main() {
-	mux := http.NewServeMux()
+	// --- Path Setup ---
+	// Get the project root directory reliably.
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Dir(b)
+	projectRoot := filepath.Join(basepath, "..", "..", "..")
+	modelPath := filepath.Join(projectRoot, "models", "saved_models", "champion_model.onnx")
 
-	// Keep the health check endpoint.
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	// --- Load the ONNX Model ---
+	log.Println("Loading ONNX model...")
+	inferenceEngine, err := inference.NewONNXInference(modelPath)
+	if err != nil {
+		log.Fatalf("Failed to load ONNX model: %v", err)
+	}
+	log.Println("✅ ONNX model loaded successfully!")
 
-	// Register our new prediction handler for the "/api/v1/predict" path.
-	mux.HandleFunc("POST /api/v1/predict", handlers.PredictionHandler)
+	// --- Dependency Injection ---
+	// Create our handler and pass the loaded model to it.
+	handler := handlers.NewHandler(inferenceEngine)
 
-	log.Printf("Starting server on port %s", port)
-	if err := http.ListenAndServe(port, mux); err != nil {
-		log.Fatal(err)
+	// --- Setup Gin Router ---
+	router := gin.Default()
+
+	// --- Define API Routes ---
+	router.GET("/healthy", handler.HealthCheck)
+	// We will create a POST endpoint for prediction.
+	// It will now handle multipart/form-data for image uploads.
+	router.POST("/api/v1/predict", handler.Predict)
+
+	// --- Start the Server ---
+	log.Println("Starting server on :8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
