@@ -1,0 +1,21 @@
+# --- Stage 1: The "Build" Environment ---
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+COPY backend/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/api
+
+# --- Stage 2: The "Production" Environment ---
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/server .
+# FIX: The source path is relative to the build context (the project root)
+COPY models/saved_models/champion_model.onnx ./models/saved_models/
+
+# --- THE KEY ADDITION ---
+# Set an environment variable that points to the model's location INSIDE the container.
+ENV MODEL_PATH=/app/models/saved_models/champion_model.onnx
+
+EXPOSE 8080
+CMD ["/app/server"]
