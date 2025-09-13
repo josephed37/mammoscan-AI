@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	github.com/gin-gonic/gin v1.10.1
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/owulveryck/onnx-go v0.5.0
 	gorgonia.org/tensor v0.9.24
 )
