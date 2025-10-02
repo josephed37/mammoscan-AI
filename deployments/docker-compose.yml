@@ -1,0 +1,31 @@
+# deployments/docker-compose.yml
+
+services:
+  backend:
+    build:
+      # CORRECTED: The context is the project root, which is '.'
+      # because the Makefile sets --project-directory .
+      context: .
+      dockerfile: backend/Dockerfile.api
+    container_name: mammoscan-backend
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthy"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  frontend:
+    build:
+      # CORRECTED: Same logic here.
+      context: .
+      dockerfile: web/Dockerfile.web
+    container_name: mammoscan-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://backend:8080/api/v1/predict
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -38,25 +38,36 @@ evaluate:
 		--threshold $(CHAMPION_THRESHOLD)
 
 # --- Docker Commands ---
+# Define the path to your docker-compose file
+COMPOSE_FILE := deployments/docker-compose.yml
+
+# --- Docker Commands ---
 .PHONY: docker-build
 docker-build:
 	@echo "--- 🐳 Building Docker images ---"
-	docker-compose -f $(COMPOSE_FILE) build
+	docker compose --project-directory . -f $(COMPOSE_FILE) build
 
 .PHONY: docker-up
 docker-up:
 	@echo "--- 🚀 Starting all services with Docker Compose ---"
-	docker-compose -f $(COMPOSE_FILE) up -d
+	docker compose --project-directory . -f $(COMPOSE_FILE) up -d
 
 .PHONY: docker-down
 docker-down:
 	@echo "--- 🛑 Stopping all services ---"
-	docker-compose -f $(COMPOSE_FILE) down
+	docker compose --project-directory . -f $(COMPOSE_FILE) down
 
 .PHONY: docker-logs
 docker-logs:
 	@echo "--- 📜 Tailing logs for all services ---"
-	docker-compose -f $(COMPOSE_FILE) logs -f
+	docker compose --project-directory . -f $(COMPOSE_FILE) logs -f
+
+# You can add a convenience target for rebuilding from scratch
+.PHONY: docker-rebuild
+docker-rebuild: docker-down
+	@echo "--- 🔄 Rebuilding Docker images from scratch ---"
+	docker compose --project-directory . -f $(COMPOSE_FILE) build --no-cache
+	$(MAKE) docker-up
 
 # --- Utility Commands ---
 .PHONY: clean

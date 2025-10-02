@@ -1,21 +1,39 @@
 # --- Stage 1: The "Build" Environment ---
 FROM golang:1.24-alpine AS builder
+
 WORKDIR /app
+
+# --- OPTIMIZATION 1: Leverage Docker Cache ---
+# Copy only the Go module files first. This layer is only rebuilt
+# if go.mod or go.sum change, not when your source code changes.
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
-COPY backend/ .
+
+# --- OPTIMIZATION 2: Copy Only What's Needed ---
+# Copy only the backend source code, not the whole 6.5GB project.
+COPY backend/ ./
+
+# --- THE FIX ---
+# The working directory is now /app, which contains go.mod.
+# The build command will work correctly from here.
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/api
+
 
 # --- Stage 2: The "Production" Environment ---
 FROM alpine:latest
-WORKDIR /app
-COPY --from=builder /app/server .
-# FIX: The source path is relative to the build context (the project root)
-COPY models/saved_models/champion_model.onnx ./models/saved_models/
 
-# --- THE KEY ADDITION ---
-# Set an environment variable that points to the model's location INSIDE the container.
-ENV MODEL_PATH=/app/models/saved_models/champion_model.onnx
+# Install curl for the healthcheck
+RUN apk --no-cache add ca-certificates curl
+
+WORKDIR /app
+
+# Copy the compiled binary from the builder stage.
+COPY --from=builder /app/server .
+
+# Copy the ONNX model to the absolute path expected by the application.
+# This comes from the build context (the project root).
+COPY models/saved_models/champion_model.onnx /models/saved_models/champion_model.onnx
 
 EXPOSE 8080
+
 CMD ["/app/server"]
