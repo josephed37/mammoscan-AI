@@ -47,6 +47,8 @@ jobs:
         with:
           workload_identity_provider: 'projects/15175657305/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-actions-sa@mammoscan-ai.iam.gserviceaccount.com'
+          audience: 'https://iam.googleapis.com/projects/15175657305/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+
 
       # --- Step 3: Setup Google Cloud SDK ---
       # This step installs and configures the `gcloud` command-line tool.
