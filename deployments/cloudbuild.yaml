@@ -1,16 +1,40 @@
 # deployments/cloudbuild.yaml
 steps:
-# Use the official Docker Compose builder from Google
-- name: 'gcr.io/google-appengine/exec-wrapper'
-  args:
-  - '-i'
-  - 'gcr.io/$PROJECT_ID/docker-compose' # The builder image
-  - '-e'
-  - 'PROJECT_ID=$PROJECT_ID' # Pass project ID as env var
-  # The command to run inside the builder
-  - '--' 
-  - 'docker-compose'
-  - '-f'
-  - 'deployments/docker-compose.yml'
-  - 'build'
-  - '--push' # Build and push the images
+  # Build backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-backend:latest'
+      - '-f'
+      - 'backend/Dockerfile'
+      - './backend'
+    
+  # Build frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-frontend:latest'
+      - '-f'
+      - 'frontend/Dockerfile'
+      - './frontend'
+
+  # Push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-backend:latest'
+    
+  # Push frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-frontend:latest'
+
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-backend:latest'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-frontend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

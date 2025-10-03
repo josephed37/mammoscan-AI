@@ -9,15 +9,16 @@ on:
   push:
     branches:
       - main
+      
 
 # --- Environment Variables ---
 # Define variables that will be used throughout the workflow.
-
 env:
   GCP_PROJECT_ID: mammoscan-ai
-  GCP_REGION: europe-west1 # Or your preferred region
+  GCP_REGION: europe-west1
   BACKEND_SERVICE_NAME: mammoscan-backend
   FRONTEND_SERVICE_NAME: mammoscan-frontend
+  ARTIFACT_REGISTRY: europe-west1-docker.pkg.dev/mammoscan-ai/mammoscan-repo
 
 # --- Jobs ---
 # A workflow is made up of one or more jobs.
@@ -47,8 +48,6 @@ jobs:
         with:
           workload_identity_provider: 'projects/15175657305/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-actions-sa@mammoscan-ai.iam.gserviceaccount.com'
-          audience: 'https://iam.googleapis.com/projects/15175657305/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-
 
       # --- Step 3: Setup Google Cloud SDK ---
       # This step installs and configures the `gcloud` command-line tool.
@@ -57,7 +56,7 @@ jobs:
 
       # --- Step 4: Build and Push Images using Cloud Build ---
       # We use a single command to submit our entire project to Google Cloud Build.
-      # Cloud Build will read our docker-compose.yml file to build both images
+      # Cloud Build will read our cloudbuild.yaml file to build both images
       # and push them to Google Artifact Registry.
       - name: Build and Push Docker images
         run: |-
@@ -68,7 +67,7 @@ jobs:
       - name: Deploy Backend to Cloud Run
         run: |-
           gcloud run deploy ${{ env.BACKEND_SERVICE_NAME }} \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:latest \
+            --image ${{ env.ARTIFACT_REGISTRY }}/mammoscan-backend:latest \
             --region ${{ env.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated
@@ -83,7 +82,7 @@ jobs:
           
           # Now, deploy the frontend and pass the backend URL as an environment variable.
           gcloud run deploy ${{ env.FRONTEND_SERVICE_NAME }} \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:latest \
+            --image ${{ env.ARTIFACT_REGISTRY }}/mammoscan-frontend:latest \
             --region ${{ env.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated \
