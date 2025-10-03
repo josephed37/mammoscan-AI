@@ -1,26 +1,46 @@
+# # --- Base Image ---
+# # Start from a standard Python 3.11 slim image.
+# FROM python:3.11-slim
+
+# # --- Set Working Directory ---
+# WORKDIR /app
+
+# # --- Copy and Install Dependencies ---
+# # First, copy only the requirements file to leverage Docker's caching.
+# COPY web/requirements.txt .
+# # Install the Python packages our app needs.
+# RUN pip install --no-cache-dir -r requirements.txt
+
+# # --- Copy Application Code ---
+# # Copy the rest of our web application's code.
+# COPY web/ .
+
+# # --- Expose Port ---
+# # Let Docker know that our application will listen on port 8501.
+# EXPOSE 8501
+
+# # --- Run Command ---
+# # The command to start the Streamlit server when the container runs.
+# # We use `--server.port` to match the exposed port and `--server.address 0.0.0.0`
+# # to allow connections from outside the container.
+# CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
 # --- Base Image ---
-# Start from a standard Python 3.11 slim image.
 FROM python:3.11-slim
 
 # --- Set Working Directory ---
 WORKDIR /app
 
 # --- Copy and Install Dependencies ---
-# First, copy only the requirements file to leverage Docker's caching.
-COPY web/requirements.txt .
-# Install the Python packages our app needs.
+# Since the context is already ./web, just copy from current directory
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Copy Application Code ---
-# Copy the rest of our web application's code.
-COPY web/ .
+COPY . .
 
 # --- Expose Port ---
-# Let Docker know that our application will listen on port 8501.
 EXPOSE 8501
 
 # --- Run Command ---
-# The command to start the Streamlit server when the container runs.
-# We use `--server.port` to match the exposed port and `--server.address 0.0.0.0`
-# to allow connections from outside the container.
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
