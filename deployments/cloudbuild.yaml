@@ -7,18 +7,18 @@ steps:
       - '-t'
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-backend:latest'
       - '-f'
-      - 'backend/Dockerfile'
+      - 'backend/Dockerfile.api'
       - './backend'
     
-  # Build frontend image
+  # Build frontend (web) image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-frontend:latest'
       - '-f'
-      - 'frontend/Dockerfile'
-      - './frontend'
+      - 'web/Dockerfile.web'
+      - './web'
 
   # Push backend image
   - name: 'gcr.io/cloud-builders/docker'
