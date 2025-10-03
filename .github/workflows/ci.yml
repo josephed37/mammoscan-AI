@@ -1,0 +1,88 @@
+# .github/workflows/cd.yml
+
+# Name of our workflow
+name: Continuous Deployment
+
+# --- Trigger ---
+# This workflow runs on every push to the 'main' branch.
+on:
+  push:
+    branches:
+      - main
+
+# --- Environment Variables ---
+# Define variables that will be used throughout the workflow.
+
+env:
+  GCP_PROJECT_ID: mammoscan-ai
+  GCP_REGION: europe-west1 # Or your preferred region
+  BACKEND_SERVICE_NAME: mammoscan-backend
+  FRONTEND_SERVICE_NAME: mammoscan-frontend
+
+# --- Jobs ---
+# A workflow is made up of one or more jobs.
+jobs:
+  deploy:
+    name: Build and Deploy to Cloud Run
+    # We need to grant permissions for the job to authenticate with Google Cloud.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    # The job will run on the latest Ubuntu environment.
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- Step 1: Checkout Code ---
+      # This step checks out your repository's code so the job can access it.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- Step 2: Authenticate to Google Cloud ---
+      # This action handles the secure login to your GCP account.
+      # It uses a service account that we will set up in GCP.
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: 'projects/15175657305/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-sa@mammoscan-ai.iam.gserviceaccount.com'
+
+      # --- Step 3: Setup Google Cloud SDK ---
+      # This step installs and configures the `gcloud` command-line tool.
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      # --- Step 4: Build and Push Images using Cloud Build ---
+      # We use a single command to submit our entire project to Google Cloud Build.
+      # Cloud Build will read our docker-compose.yml file to build both images
+      # and push them to Google Artifact Registry.
+      - name: Build and Push Docker images
+        run: |-
+          gcloud builds submit --config=deployments/cloudbuild.yaml .
+      
+      # --- Step 5: Deploy Backend to Cloud Run ---
+      # This command deploys our backend image to Cloud Run.
+      - name: Deploy Backend to Cloud Run
+        run: |-
+          gcloud run deploy ${{ env.BACKEND_SERVICE_NAME }} \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:latest \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated
+
+      # --- Step 6: Deploy Frontend to Cloud Run ---
+      # This command deploys our frontend image, setting the crucial API_URL
+      # environment variable to point to our newly deployed backend service.
+      - name: Deploy Frontend to Cloud Run
+        run: |-
+          # First, get the URL of the deployed backend service.
+          BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE_NAME }} --platform managed --region ${{ env.GCP_REGION }} --format 'value(status.url)')
+          
+          # Now, deploy the frontend and pass the backend URL as an environment variable.
+          gcloud run deploy ${{ env.FRONTEND_SERVICE_NAME }} \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:latest \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars=API_URL=${BACKEND_URL}/api/v1/predict
