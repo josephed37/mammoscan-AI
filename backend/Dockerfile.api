@@ -3,6 +3,7 @@
 # --- Stage 1: The "Build" Environment ---
 FROM golang:1.24-alpine AS builder
 
+# Set the working directory inside the container.
 WORKDIR /app
 
 # Copy the entire project context so our Go build can find the module.
