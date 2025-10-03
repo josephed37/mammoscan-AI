@@ -1,0 +1,16 @@
+# deployments/cloudbuild.yaml
+steps:
+# Use the official Docker Compose builder from Google
+- name: 'gcr.io/google-appengine/exec-wrapper'
+  args:
+  - '-i'
+  - 'gcr.io/$PROJECT_ID/docker-compose' # The builder image
+  - '-e'
+  - 'PROJECT_ID=$PROJECT_ID' # Pass project ID as env var
+  # The command to run inside the builder
+  - '--' 
+  - 'docker-compose'
+  - '-f'
+  - 'deployments/docker-compose.yml'
+  - 'build'
+  - '--push' # Build and push the images
