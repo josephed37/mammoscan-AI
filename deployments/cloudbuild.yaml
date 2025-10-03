@@ -1,6 +1,6 @@
 # deployments/cloudbuild.yaml
 steps:
-  # Build backend image
+  # Build backend image with root context
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -8,7 +8,7 @@ steps:
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mammoscan-repo/mammoscan-backend:latest'
       - '-f'
       - 'backend/Dockerfile.api'
-      - './backend'
+      - '.'  # Root context so we can access models/
     
   # Build frontend (web) image
   - name: 'gcr.io/cloud-builders/docker'
