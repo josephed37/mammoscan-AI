@@ -92,14 +92,9 @@
 # EXPOSE 8080
 # CMD ["/app/server"]
 
-# backend/Dockerfile.api
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
-
-# Copy backend and model
 COPY backend/ ./backend/
-COPY models/saved_models/champion_model.onnx ./models/saved_models/champion_model.onnx
-
 WORKDIR /app/backend
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/api
@@ -107,10 +102,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/api
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates curl
 WORKDIR /app
-
 COPY --from=builder /app/backend/server .
-COPY --from=builder /app/models/saved_models/champion_model.onnx ./models/saved_models/champion_model.onnx
-
-ENV MODEL_PATH=/app/models/saved_models/champion_model.onnx
 EXPOSE 8080
 CMD ["/app/server"]
