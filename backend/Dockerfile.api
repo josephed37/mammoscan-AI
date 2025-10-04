@@ -1,40 +1,68 @@
+# # backend/Dockerfile.api
+
+# # --- Stage 1: The "Build" Environment ---
+# FROM golang:1.24-alpine AS builder
+
+# # Set the working directory inside the container.
+# WORKDIR /app
+
+# # Copy the entire project context so our Go build can find the module.
+# COPY . .
+
+# # Change the working directory to the 'backend' folder where go.mod lives.
+# WORKDIR /app/backend
+
+# # Download dependencies and build the application.
+# RUN go mod download
+# RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/api
+
+
+# # --- Stage 2: The "Production" Environment ---
+# FROM alpine:latest
+
+# # Install curl, which is needed for the healthcheck.
+# RUN apk --no-cache add ca-certificates curl
+
+# WORKDIR /app
+
+# # Copy the compiled binary from the builder stage.
+# # Note the updated source path because we changed WORKDIR in the builder.
+# COPY --from=builder /app/backend/server .
+
+# # Copy the ONNX model into the final image.
+# COPY models/saved_models/champion_model.onnx ./models/saved_models/
+
+# # Set the environment variable for the model path inside the container.
+# ENV MODEL_PATH=/app/models/saved_models/champion_model.onnx
+
+# EXPOSE 8080
+
+# CMD ["/app/server"]
+
+
+
 # backend/Dockerfile.api
 
-# --- Stage 1: The "Build" Environment ---
 FROM golang:1.24-alpine AS builder
-
-# Set the working directory inside the container.
 WORKDIR /app
 
-# Copy the entire project context so our Go build can find the module.
-COPY . .
+# Copy only backend files
+COPY backend/ ./backend/
 
-# Change the working directory to the 'backend' folder where go.mod lives.
+# Copy only the model file
+COPY models/saved_models/champion_model.onnx ./models/saved_models/champion_model.onnx
+
 WORKDIR /app/backend
-
-# Download dependencies and build the application.
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/api
 
-
-# --- Stage 2: The "Production" Environment ---
 FROM alpine:latest
-
-# Install curl, which is needed for the healthcheck.
 RUN apk --no-cache add ca-certificates curl
-
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage.
-# Note the updated source path because we changed WORKDIR in the builder.
 COPY --from=builder /app/backend/server .
+COPY --from=builder /app/models/saved_models/champion_model.onnx ./models/saved_models/
 
-# Copy the ONNX model into the final image.
-COPY models/saved_models/champion_model.onnx ./models/saved_models/
-
-# Set the environment variable for the model path inside the container.
 ENV MODEL_PATH=/app/models/saved_models/champion_model.onnx
-
 EXPOSE 8080
-
 CMD ["/app/server"]
