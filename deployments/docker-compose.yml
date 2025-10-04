@@ -3,9 +3,7 @@
 services:
   backend:
     build:
-      # CORRECTED: The context is the project root, which is '.'
-      # because the Makefile sets --project-directory .
-      context: .
+      context: ..  # Go up one level to project root
       dockerfile: backend/Dockerfile.api
     container_name: mammoscan-backend
     ports:
@@ -18,9 +16,8 @@ services:
 
   frontend:
     build:
-      # CORRECTED: Same logic here.
-      context: .
-      dockerfile: web/Dockerfile.web
+      context: ../web  # Go up one level, then into web
+      dockerfile: Dockerfile.web
     container_name: mammoscan-frontend
     ports:
       - "8501:8501"
