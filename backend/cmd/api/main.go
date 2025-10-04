@@ -15,8 +15,8 @@ package main
 
 import (
 	"log"
-	"path/filepath"
-	"runtime" // Import the runtime package
+	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/josephed37/mammoscan-AI/backend/internal/handlers"
@@ -24,34 +24,44 @@ import (
 )
 
 func main() {
-	// --- THIS IS THE FIX: Find the source file's path ---
-	// This is the most reliable way to find our project's location.
-	_, b, _, _ := runtime.Caller(0)
-	// 'b' is the path to the current file (main.go)
-	basepath := filepath.Dir(b)
+	// Get model path from environment or use default
+	modelPath := os.Getenv("MODEL_PATH")
+	if modelPath == "" {
+		modelPath = "/app/models/saved_models/champion_model.onnx"
+	}
 
-	// Construct an absolute path by navigating up from our current file's location
-	// to the project root.
-	projectRoot := filepath.Join(basepath, "..", "..", "..")
-	modelPath := filepath.Join(projectRoot, "models", "saved_models", "champion_model.onnx")
+	log.Printf("Loading ONNX model from path: %s", modelPath)
 
-	// --- Load the ONNX Model ---
-	log.Println("Loading ONNX model from path:", modelPath)
+	// Create ONNX inference engine
 	inferenceEngine, err := inference.NewONNXInference(modelPath)
 	if err != nil {
 		log.Fatalf("Failed to load ONNX model: %v", err)
 	}
+
 	log.Println("✅ ONNX model loaded successfully!")
 
-	// --- Dependency Injection & Router Setup ---
+	// Initialize handler with inference engine
 	handler := handlers.NewHandler(inferenceEngine)
+
+	// Setup router
 	router := gin.Default()
+	
+	// Health check endpoint
 	router.GET("/healthy", handler.HealthCheck)
+	
+	// Prediction endpoint
 	router.POST("/api/v1/predict", handler.Predict)
 
-	// --- Start the Server ---
-	log.Println("Starting server on :8080")
-	if err := router.Run(":8080"); err != nil {
+	// Get port from environment (Cloud Run sets this)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Starting server on :%s", port)
+	
+	// Start server
+	if err := http.ListenAndServe(":"+port, router); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
