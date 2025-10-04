@@ -14,54 +14,81 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
+	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/josephed37/mammoscan-AI/backend/internal/handlers"
 	"github.com/josephed37/mammoscan-AI/backend/internal/inference"
 )
 
-func main() {
-	// Get model path from environment or use default
-	modelPath := os.Getenv("MODEL_PATH")
-	if modelPath == "" {
-		modelPath = "/app/models/saved_models/champion_model.onnx"
+func downloadFromGCS(ctx context.Context, bucket, object, dest string) error {
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("storage client: %w", err)
+	}
+	defer client.Close()
+
+	os.MkdirAll(filepath.Dir(dest), 0755)
+	
+	rc, err := client.Bucket(bucket).Object(object).NewReader(ctx)
+	if err != nil {
+		return fmt.Errorf("object reader: %w", err)
+	}
+	defer rc.Close()
+
+	f, err := os.Create(dest)
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, rc); err != nil {
+		return fmt.Errorf("copy: %w", err)
 	}
 
-	log.Printf("Loading ONNX model from path: %s", modelPath)
+	log.Printf("Downloaded gs://%s/%s to %s", bucket, object, dest)
+	return nil
+}
 
-	// Create ONNX inference engine
+func main() {
+	ctx := context.Background()
+	
+	bucket := getEnv("MODEL_GCS_BUCKET", "mammoscan-ai-models")
+	object := getEnv("MODEL_GCS_OBJECT", "champion_model.onnx")
+	modelPath := getEnv("MODEL_PATH", "/tmp/champion_model.onnx")
+
+	log.Printf("Downloading model from gs://%s/%s", bucket, object)
+	if err := downloadFromGCS(ctx, bucket, object, modelPath); err != nil {
+		log.Fatalf("Download failed: %v", err)
+	}
+
 	inferenceEngine, err := inference.NewONNXInference(modelPath)
 	if err != nil {
-		log.Fatalf("Failed to load ONNX model: %v", err)
+		log.Fatalf("Load model failed: %v", err)
 	}
 
-	log.Println("✅ ONNX model loaded successfully!")
+	log.Println("✅ Model loaded successfully")
 
-	// Initialize handler with inference engine
 	handler := handlers.NewHandler(inferenceEngine)
-
-	// Setup router
 	router := gin.Default()
-	
-	// Health check endpoint
 	router.GET("/healthy", handler.HealthCheck)
-	
-	// Prediction endpoint
 	router.POST("/api/v1/predict", handler.Predict)
 
-	// Get port from environment (Cloud Run sets this)
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	port := getEnv("PORT", "8080")
+	log.Printf("Server starting on :%s", port)
+	http.ListenAndServe(":"+port, router)
+}
 
-	log.Printf("Starting server on :%s", port)
-	
-	// Start server
-	if err := http.ListenAndServe(":"+port, router); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
+	return fallback
 }
