@@ -9,7 +9,7 @@ steps:
     - 'gcr.io/$PROJECT_ID/mammoscan-backend:latest'
     - '-f'
     - 'backend/Dockerfile.api'
-    - '.'
+    - '.'  # Root context (needs access to models/ and backend/)
 
 # Step 2: Build the frontend Docker image
 - name: 'gcr.io/cloud-builders/docker'
@@ -19,10 +19,8 @@ steps:
     - 'gcr.io/$PROJECT_ID/mammoscan-frontend:latest'
     - '-f'
     - 'web/Dockerfile.web'
-    - '.'
+    - './web'  # Changed from '.' to './web'
 
-# After the steps are complete, Cloud Build will automatically push
-# these two images to your project's Google Container Registry (GCR).
 images:
   - 'gcr.io/$PROJECT_ID/mammoscan-backend:latest'
   - 'gcr.io/$PROJECT_ID/mammoscan-frontend:latest'
