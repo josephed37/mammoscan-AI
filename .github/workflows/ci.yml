@@ -37,15 +37,13 @@ jobs:
 
       - name: Build and Push Docker images
         run: |-
-          set +e  # Don't exit on error
+          set +e
           gcloud builds submit --config=deployments/cloudbuild.yaml .
           BUILD_EXIT_CODE=$?
           
-          # Check if images exist (the real test)
           gcloud container images describe gcr.io/${{ env.GCP_PROJECT_ID }}/mammoscan-backend:latest
           gcloud container images describe gcr.io/${{ env.GCP_PROJECT_ID }}/mammoscan-frontend:latest
           
-          # If images exist, consider it success regardless of streaming error
           if [ $? -eq 0 ]; then
             echo "Images built and pushed successfully"
             exit 0
@@ -59,7 +57,10 @@ jobs:
             --image gcr.io/${{ env.GCP_PROJECT_ID }}/mammoscan-backend:latest \
             --region ${{ env.GCP_REGION }} \
             --platform managed \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --cpu 1 \
+            --set-env-vars=MODEL_GCS_BUCKET=mammoscan-ai-models,MODEL_GCS_OBJECT=champion_model.onnx
 
       - name: Deploy Frontend to Cloud Run
         run: |-
